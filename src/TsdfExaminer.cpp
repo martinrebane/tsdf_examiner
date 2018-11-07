@@ -36,6 +36,31 @@ void TsdfExaminer::initialDebug(int iteration) {
 	ROS_ERROR("Mesh generated!");
 }
 
+void TsdfExaminer::stepByStepDebugger() {
+	// capture a pointcloud from the ROS topic
+
+	// make a new instance of TSDF integrator
+
+	// integrate pointcloud to TSDF
+
+	// save off the TSDF layer
+
+	// capture next pointcloud
+
+	// integrate it into TSDF
+
+	// save off the TSDF layer
+
+	// now we have 2 TSDF layers which we can compare
+	// either by visually (converting them to mesh etc)
+	// or to write some script
+
+	// it would be good to test first with static data (LIDAR not moving)
+	// because then the static world is not expanding or changing
+
+	// only then move on to see what happens when there is ego-motion
+}
+
 } /* namespace tsdf_examiner */
 
 int main(int argc, char** argv) {
