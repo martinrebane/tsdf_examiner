@@ -6,7 +6,8 @@ TsdfExaminer::TsdfExaminer(const ros::NodeHandle& nh,
 		const ros::NodeHandle& nh_private):
 			nh_(nh),
 			nh_private_(nh_private),
-			tsdf_server_(nh_, nh_private_)
+			tsdf_server_(nh_, nh_private_),
+			step(0)
 				{
 	nh_private.getParam("mesh_filename", mesh_filename_);
 }
@@ -36,53 +37,66 @@ void TsdfExaminer::initialDebug(int iteration) {
 	ROS_ERROR("Mesh generated!");
 }
 
-void TsdfExaminer::stepByStepDebugger() {
-	// capture a pointcloud from the ROS topic
+void TsdfExaminer::continuousScanTsdfSaver(const sensor_msgs::PointCloud2::Ptr& pointcloud) {
+	ROS_INFO("--------------- INTEGRATING POINTCLOUD ----------------");
+	// insert pointcloud to TSDF
+	// arg: const sensor_msgs::PointCloud2::Ptr& pointcloud
+	tsdf_server_.insertPointcloud(pointcloud);
 
-	// make a new instance of TSDF integrator
-
-	// integrate pointcloud to TSDF
-
-	// save off the TSDF layer
-
-	// capture next pointcloud
-
-	// integrate it into TSDF
-
-	// save off the TSDF layer
-
-	// now we have 2 TSDF layers which we can compare
-	// either by visually (converting them to mesh etc)
-	// or to write some script
-
-	// it would be good to test first with static data (LIDAR not moving)
-	// because then the static world is not expanding or changing
-
-	// only then move on to see what happens when there is ego-motion
+	// save off the TSDF map
+	tsdf_server_.saveMap("/home/martin/jtmp/map/tsdf_" + std::to_string(step) + ".vxblx");
+	step++;
 }
 
-} /* namespace tsdf_examiner */
+void TsdfExaminer::oneScanTsdfSaver(const sensor_msgs::PointCloud2::Ptr& pointcloud) {
+	ROS_INFO("--------------- MAPPING SINGLE POINTCLOUD ----------------");
+	// clear TSDF map
+	tsdf_server_.clear();
+	tsdf_server_.insertPointcloud(pointcloud);
+	tsdf_server_.saveMap("/home/martin/jtmp/map/tsdf_tmp_" + std::to_string(step) + ".vxblx");
+	step++;
+}
+
+}
+
 
 int main(int argc, char** argv) {
-	ros::init(argc, argv, "coll_avoid_detector");
+	ros::init(argc, argv, "tsdf_examiner");
 	ros::NodeHandle n;
 	ros::NodeHandle nh_private("~");
 
 	ros::Rate rate(10); // frequency in Hz
 
-	ROS_INFO("Alles klar!");
+	ROS_INFO("Alles klar! Args .%s.", argv[1]);
 
 	tsdf_examiner::TsdfExaminer examiner(n, nh_private);
-	//examiner.initialDebug();
+
+	std::string map_mode = argv[1];
+
+	//ros::Duration(5.0).sleep();
+	ros::Subscriber sub;
+	// listen to incoming pointcloud and register callback for it
+	if (map_mode == "single") {
+		// save only one scan
+		ROS_INFO("subscribe oneScanTsdfSaver");
+		sub = n.subscribe("/velodyne_points", 1000, &tsdf_examiner::TsdfExaminer::oneScanTsdfSaver, &examiner);
+	} else {
+		// integrate scans
+		ROS_INFO("subscribe continuousScanTsdfSaver");
+		sub = n.subscribe("/velodyne_points", 1000, &tsdf_examiner::TsdfExaminer::continuousScanTsdfSaver, &examiner);
+	}
+
 	int i = 0;
 	while(ros::ok()) {
 		ros::spinOnce();
 		rate.sleep();
 		if (i == 100 || i == 101) {
-			examiner.initialDebug(i);
+			//examiner.initialDebug(i);
 		}
 		ROS_ERROR("Line: %d", i);
 		i++;
 	}
+
+	return 0;
 
 }
